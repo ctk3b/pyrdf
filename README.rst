@@ -12,10 +12,7 @@ Parallelized radial distribution function
         :target: https://crate.io/packages/pyrdf?version=latest
 
 
-Parallelized radial distribution function calculattor using PyOpenCL
-
-* Free software: BSD license
-* Documentation: http://pyrdf.rtfd.org.
+Parallelized radial distribution function calculator using PyOpenCL
 
 Features
 --------
