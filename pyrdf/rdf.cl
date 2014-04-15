@@ -48,7 +48,7 @@ __kernel void rdf(const int n_atoms,
 
     for (i = 0; i < n_atoms-1; i ++) {
         unsigned int bin = floor((distances[i] - r_min) / binsize);
-        if (bin == 0) {
+        if (center == 0 && bin == 0) {
             printf("Atom %d to atom %d has distance: %.2f.\n", center, i, distances[i]);
         }
         dist_histogram[bin]++;

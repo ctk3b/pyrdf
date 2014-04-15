@@ -15,7 +15,7 @@ def rdf(file_name, pairs=None, r_range=np.array([0.0, 8.0], dtype=np.float32),
 
     Args:
         file_name (str): name of trajectory file.
-        pairs (None, list): pairs of atomtypes to consider.
+        pairs (None or np.ndarray): pairs of atomtypes to consider.
         r_range (tuple): min and max radii.
         n_bins (int): number of bins.
     Returns:
@@ -63,26 +63,37 @@ def rdf(file_name, pairs=None, r_range=np.array([0.0, 8.0], dtype=np.float32),
             if opencl:
                 # all-all
                 if not pairs:
-                    i = n_atoms - 1
-                    global_size = (n_atoms,)
-                    local_size = None
+                    pass
 
-                    # push
-                    xyz_buf = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR,
-                            hostbuf=xyz)
-                    box_buf = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR,
-                            hostbuf=box_lengths)
-                    result_buf = cl.Buffer(ctx, mf.WRITE_ONLY, temp_g_r.nbytes)
+                # type_i-type_i
+                elif pairs[0] == pairs[1]:
+                    xyz = xyz[types == pairs[0]]
+                    n_atoms = np.int64(xyz.shape[0])
 
-                    # run
-                    kernel = program.rdf(queue, global_size, local_size,
-                            n_atoms, n_bins, r_range[0], r_range[1],
-                            xyz_buf, box_buf, result_buf)
-                    kernel.wait()
+                # type_i-type_j
+                else:
+                    raise Exception("Not yet implemented!")
 
-                    # pull
-                    cl.enqueue_read_buffer(queue, result_buf, temp_g_r).wait()
-                    g_r += temp_g_r
+                i = n_atoms - 1
+                global_size = (n_atoms,)
+                local_size = None
+
+                # push
+                xyz_buf = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR,
+                        hostbuf=xyz)
+                box_buf = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR,
+                        hostbuf=box_lengths)
+                result_buf = cl.Buffer(ctx, mf.WRITE_ONLY, temp_g_r.nbytes)
+
+                # run
+                kernel = program.rdf(queue, global_size, local_size,
+                        n_atoms, n_bins, r_range[0], r_range[1],
+                        xyz_buf, box_buf, result_buf)
+                kernel.wait()
+
+                # pull
+                cl.enqueue_read_buffer(queue, result_buf, temp_g_r).wait()
+                g_r += temp_g_r
 
             # serial
             else:

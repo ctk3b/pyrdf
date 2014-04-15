@@ -4,7 +4,8 @@ import numpy as np
 from pyrdf.rdf import rdf
 
 types = {1: 'O', 2: 'H', 3: 'H'}
-pairs = [None]
+#pairs = [None]
+pairs = [[1, 2]]
 
 for pair in pairs:
     trajectory_file = 'water_216.lammpstrj'
@@ -21,4 +22,6 @@ for pair in pairs:
         name = '{0}-{1}'.format(types[pair[0]], types[pair[1]])
     else:
         name = 'all-all'
-    fig.savefig('img/{0}_pyopencl.pdf'.format(name), bbox_inches='tight')
+    fig_name = 'img/{0}_pyopencl.pdf'.format(name)
+    fig.savefig(fig_name, bbox_inches='tight')
+    print "Wrote: {0}".format(fig_name)
