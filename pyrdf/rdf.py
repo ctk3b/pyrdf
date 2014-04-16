@@ -10,14 +10,16 @@ from pyrdf.mdio import read_frame_lammpstrj, distance_pbc
 
 
 def rdf(file_name, pairs=None, r_range=np.array([0.0, 8.0], dtype=np.float32),
-        n_bins=np.int32(100), max_frames=1, opencl=True, verbose=False):
+        n_bins=np.uint32(100), max_frames=1, opencl=True, local_size= None,
+        verbose=False):
     """Calculate radial distribution functions.
 
     Args:
         file_name (str): name of trajectory file.
-        pairs (None or np.ndarray): pairs of atomtypes to consider.
-        r_range (tuple): min and max radii.
-        n_bins (int): number of bins.
+        pairs (None or list): pairs of atomtypes to consider.
+        r_range (np.ndarray): min and max radii.
+        n_bins (np.uint32): number of bins.
+        max_frames (int): maximum number of frames to read.
     Returns:
         r (np.ndarray): radii values corresponding to bins.
         g_r (np.ndarray): values at r.
@@ -48,8 +50,9 @@ def rdf(file_name, pairs=None, r_range=np.array([0.0, 8.0], dtype=np.float32),
             try:
                 xyz, types, _, box = read_frame_lammpstrj(trj)
             except ValueError:
-                print("Reached end of '{0}' or "
-                    "file contains unexpected line.".format(file_name))
+                if verbose:
+                    print("Reached end of '{0}' or "
+                        "file contains unexpected line.".format(file_name))
                 break
             if verbose:
                 print "Read " + str(n_frames)
@@ -59,43 +62,30 @@ def rdf(file_name, pairs=None, r_range=np.array([0.0, 8.0], dtype=np.float32),
             box_lengths = np.array(box_lengths)
             box_volume = np.prod(box_lengths)
 
-            # parallel
             if opencl:
-                # all-all
                 if not pairs:
                     pass
-
-                # type_i-type_i
                 elif pairs[0] == pairs[1]:
                     xyz = xyz[types == pairs[0]]
                     n_atoms = np.int64(xyz.shape[0])
-
-                # type_i-type_j
                 else:
                     raise Exception("Not yet implemented!")
-
                 i = n_atoms - 1
                 global_size = (n_atoms,)
-                local_size = None
 
-                # push
                 xyz_buf = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR,
                         hostbuf=xyz)
                 box_buf = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR,
                         hostbuf=box_lengths)
                 result_buf = cl.Buffer(ctx, mf.WRITE_ONLY, temp_g_r.nbytes)
 
-                # run
                 kernel = program.rdf(queue, global_size, local_size,
                         n_atoms, n_bins, r_range[0], r_range[1],
                         xyz_buf, box_buf, result_buf)
-                kernel.wait()
 
-                # pull
                 cl.enqueue_read_buffer(queue, result_buf, temp_g_r).wait()
                 g_r += temp_g_r
 
-            # serial
             else:
                 # all-all
                 if not pairs:
@@ -103,7 +93,7 @@ def rdf(file_name, pairs=None, r_range=np.array([0.0, 8.0], dtype=np.float32),
                         xyz_j = np.vstack([xyz[:i], xyz[i+1:]])
                         d = distance_pbc(xyz_i, xyz_j, box_lengths)
                         temp_g_r, _ = np.histogram(d, n_bins, r_range)
-                        g_r += check_temp_g_r
+                        g_r += temp_g_r
 
                 # type_i-type_i
                 elif pairs[0] == pairs[1]:
@@ -124,10 +114,11 @@ def rdf(file_name, pairs=None, r_range=np.array([0.0, 8.0], dtype=np.float32),
 
             rho += (i + 1) / box_volume
 
-        # normalization
-        r = 0.5 * (edges[1:] + edges[:-1])
-        V = 4./3. * np.pi * (np.power(edges[1:], 3) - np.power(edges[:-1], 3))
-        norm = rho * i
-        g_r = g_r.astype(np.float32)
-        g_r /= norm * V
+    # normalization
+    r = 0.5 * (edges[1:] + edges[:-1])
+    V = 4./3. * np.pi * (np.power(edges[1:], 3) - np.power(edges[:-1], 3))
+    norm = rho * i
+    g_r = g_r.astype(np.float32)  # from uint32
+    g_r /= norm * V
+
     return r, g_r

@@ -1,6 +1,4 @@
-#define ANINT(x) ((x >= 0.5) ? (1.0) : (x < -0.5) ? (-1.0) : (0.0))
-
-__kernel void rdf(const int n_atoms,
+__kernel void rdf(const unsigned int n_atoms,
                 const unsigned int n_bins,
                 float r_min,
                 float r_max,
@@ -29,9 +27,12 @@ __kernel void rdf(const int n_atoms,
             // calculate distance to nearest image of atom
             float dist = 0;
             for (i = 0; i < 3; i++) {
-                float temp = center_coord[i] - coord[i];
-                temp -= box[i] * ANINT(temp / box[i]);
-                dist += temp * temp;
+                float diff = center_coord[i] - coord[i];
+                float image = (diff / box[i] >= 0.5) ? (1.0) :
+                              (diff / box[i] < -0.5) ? (-1.0) :
+                              (0.0);
+                diff -= box[i] * image;
+                dist += diff * diff;
             }
             // NOTE: maybe do sqrt on host in DP; return g(r^2) from here
             distances[added] = sqrt(dist);
@@ -46,11 +47,8 @@ __kernel void rdf(const int n_atoms,
         dist_histogram[i] = 0;
     }
 
-    for (i = 0; i < n_atoms-1; i ++) {
+    for (i = 0; i < n_atoms-1; i++) {
         unsigned int bin = floor((distances[i] - r_min) / binsize);
-        if (center == 0 && bin == 0) {
-            printf("Atom %d to atom %d has distance: %.2f.\n", center, i, distances[i]);
-        }
         dist_histogram[bin]++;
     }
 
@@ -59,4 +57,3 @@ __kernel void rdf(const int n_atoms,
         atomic_add(&g_r[i], dist_histogram[i]);
     }
 }
-

@@ -5,7 +5,7 @@ from pyrdf.rdf import rdf
 
 types = {1: 'O', 2: 'H', 3: 'H'}
 #pairs = [None]
-pairs = [[1, 2]]
+pairs = [[1, 1]]
 
 for pair in pairs:
     trajectory_file = 'water_216.lammpstrj'

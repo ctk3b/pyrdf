@@ -2,6 +2,7 @@
 
 import numpy as np
 
+
 def read_frame_lammpstrj(trj):
     """Load a frame from a LAMMPS dump file.
 
@@ -40,6 +41,7 @@ def read_frame_lammpstrj(trj):
     # --- end body ---
 
     return xyz, types, step, box
+
 
 def distance_pbc(x0, x1, dimensions):
     """Vectorized distance calculation considering minimum image."""
