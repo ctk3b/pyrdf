@@ -4,13 +4,12 @@ import os
 import pdb
 
 import numpy as np
-import pyopencl as cl
 
 from pyrdf.mdio import read_frame_lammpstrj, distance_pbc
 
 
 def rdf(file_name, pairs=None, r_range=np.array([0.0, 8.0], dtype=np.float32),
-        n_bins=np.uint32(100), max_frames=1, opencl=True, local_size= None,
+        n_bins=np.uint32(100), max_frames=1, acceleration=True, local_size= None,
         verbose=False):
     """Calculate radial distribution functions.
 
@@ -34,7 +33,8 @@ def rdf(file_name, pairs=None, r_range=np.array([0.0, 8.0], dtype=np.float32),
     n_frames = 0
     rho = 0
 
-    if opencl:
+    if acceleration == 'opencl':
+        import pyopencl as cl
         ctx = cl.create_some_context()
         queue = cl.CommandQueue(ctx)
         mf = cl.mem_flags
@@ -44,6 +44,11 @@ def rdf(file_name, pairs=None, r_range=np.array([0.0, 8.0], dtype=np.float32),
         with open(kernel_path, 'r') as f:
             source = "".join(f.readlines())
         program = cl.Program(ctx, source).build()
+
+    elif acceleration == 'cython':
+        import pyximport
+        pyximport.install(setup_args={'include_dirs':[np.get_include()]})
+        from _rdf import cy_rdf
 
     with open(file_name, 'r') as trj:
         while n_frames < max_frames:
@@ -62,7 +67,7 @@ def rdf(file_name, pairs=None, r_range=np.array([0.0, 8.0], dtype=np.float32),
             box_lengths = np.array(box_lengths)
             box_volume = np.prod(box_lengths)
 
-            if opencl:
+            if acceleration == 'opencl':
                 if not pairs:
                     pass
                 elif pairs[0] == pairs[1]:
@@ -85,6 +90,14 @@ def rdf(file_name, pairs=None, r_range=np.array([0.0, 8.0], dtype=np.float32),
 
                 cl.enqueue_read_buffer(queue, result_buf, temp_g_r).wait()
                 g_r += temp_g_r
+
+            elif acceleration == 'cython':
+                if not pairs:
+                    g_r = cy_rdf(n_atoms, n_bins, r_range[0], r_range[1],
+                            xyz, box_lengths, g_r)
+                else:
+                    raise Exception("Not yet implemented!")
+                i = n_atoms - 1
 
             else:
                 # all-all

@@ -10,7 +10,7 @@ pairs = [[1, 1]]
 for pair in pairs:
     trajectory_file = 'water_216.lammpstrj'
     r, g_r = rdf(trajectory_file, pairs=pair, r_range=(0.0, 8.0), n_bins=200,
-            max_frames=np.inf, opencl=True, verbose=True)
+            max_frames=np.inf, acceleration=True, verbose=True)
 
     fig = plt.figure()
     plt.plot(r, g_r, 'bo-')
